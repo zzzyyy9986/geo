@@ -1,6 +1,8 @@
 import * as React from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import {MarkPage} from "./components/MarkPage";
