@@ -1,14 +1,16 @@
 import * as React from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './App.css';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import {MarkPage} from "./components/MarkPage";
 
 export const App = () => (
 
     <BrowserRouter>
         <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
+            <Route path="/demo" element={<MarkPage />} />
         </Routes>
     </BrowserRouter>
 
