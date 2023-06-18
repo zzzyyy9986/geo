@@ -53,6 +53,13 @@ const infrastructureIcons = {
 };
 
 const infrastructureTypes = ["pharmacy", "kindergarten", "school", "restaurant"];
+const infrastructureTypesRus = {
+  "pharmacy":'Аптека',
+  "kindergarten":'Детский сад',
+  "school":'Школа',
+  "restaurant":"Ресторан"
+}
+
 const centerOfMoscow = { latitude: 55.751244, longitude: 37.618423 }; // координаты центра Москвы
 
 
@@ -364,7 +371,7 @@ return (
             mainData.selectedType = e.target.value;
           }}>
             {infrastructureTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{infrastructureTypesRus[type]}</option>
             ))}
           </select>
         </div>
@@ -375,8 +382,11 @@ return (
         {/*{isLoading && <p>Загрузка данных...</p>} // строка состояния*/}
       </form>
 
-      <div className='m-lg-3'>
-        Средняя стоимость с учетом всех данных:{mainData.newPrice}
+      <h3 className='m-lg-3'>
+        Средняя стоимость с учетом всех данных
+      </h3>
+      <div className='text-center'>
+        <h3  style={{textAlign:'center',color:'green'}}>{mainData.newPrice}</h3>
       </div>
 
     </div>
