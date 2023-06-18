@@ -11,6 +11,9 @@ import districtsData from './districtsData.json';
 import { saveAs } from 'file-saver';
 import { getDistance } from 'geolib'; // импортируем функцию для вычисления расстояния
 import { Marker, Tooltip } from 'react-leaflet';
+import {observable} from "mobx";
+import {Observer, observer} from "mobx-react-lite";
+import {useStore} from "./store/store";
 const infrastructureIcons = {
   pharmacy: L.divIcon({
     className: 'custom-icon',
@@ -161,9 +164,9 @@ async function fetchDistrictData(polygon) {
   }
 }
 
-function MapComponent({ handleCollectGeoData, selectedType }) {
+const MapComponent = observer(  ({ handleCollectGeoData, selectedType }) => {
 
-
+  const {mainData} = useStore()
   const [markers, setMarkers] = useState([]);
   const map = useMap();
   const drawnItems = L.featureGroup().addTo(map);
@@ -183,8 +186,6 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
       const latLng = layer.getLatLng();
       setMarkers(prev => [...prev, {position: [latLng.lat, latLng.lng], type: selectedTypeRef.current}]);
     }
-    const { edit } = map.editTools;
-    edit._toggleEditing(e.layer);
     try {
       const layer = e.layer;
       DrawnItems.addLayer(layer);
@@ -200,12 +201,15 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
           console.error(`Error fetching infrastructure for ${type}: `, error);
         }
       }
+      mainData.districtInfo =  {...infrastructureCounts}
       console.log(infrastructureCounts)
 
       console.log('Infrastructure Counts:', infrastructureCounts);
     } catch (error) {
       console.error('Error in handleCreated: ', error);
     }
+    // const { edit } = map.editTools;
+    // edit._toggleEditing(e.layer);
   };
 
   return (
@@ -235,7 +239,7 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
     ))}
     </FeatureGroup>
   );
-}
+})
 
 async function fetchInfrastructureInPolygon(polygon, infrastructureType) {
   const overpassUrl = 'https://overpass-api.de/api/interpreter';
@@ -266,7 +270,8 @@ async function fetchInfrastructureInPolygon(polygon, infrastructureType) {
 }
 
 
-function MyMap() {
+const  MyMap = observer(() => {
+  const {mainData} = useStore()
   const [selectedType, setSelectedType] = useState(infrastructureTypes[0]); // Добавьте эту строку
 
   const [isLoading, setIsLoading] = useState(false); // Используем isLoading для строки состояния
@@ -291,48 +296,44 @@ function MyMap() {
     setIsLoading(false); // Завершаем загрузку
   };
 
-  const updateData = (e) => {
-    axios.post("http://37.220.84.64:5000",{
-            "pharmacy": 190,
-            "kindergarten": 100,
-            "school": 122,
-            "restaurant": 92,
-            "distanceToCenter": 50000
-          })
-        .then((msg) => {
-            console.log(msg)
-        })
-  }
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       <div style={{ flex: '2', position: 'relative' }}>
         <MapContainer center={[55.7522200, 37.6155600]} zoom={13} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapComponent handleCollectGeoData={handleCollectGeoData} selectedType={selectedType} />
+          <MapComponent handleCollectGeoData={handleCollectGeoData} selectedType={mainData.selectedType} />
 
         </MapContainer>
       </div>
-      <div style={{ flex: '1', padding: '10px' }}>
-      <select onChange={(e) => {
-  console.log(e.target.value); // Добавьте эту строку для отладки
-  setSelectedType(e.target.value);
-}}>
-  {infrastructureTypes.map(type => (
-    <option key={type} value={type}>{type}</option>
-  ))}
-</select>
-        <button onClick={updateData} type='button'>Обновить</button>
-        <button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>
-          Собрать геометрические данные
-        </button>
-        {isLoading && <p>Загрузка данных...</p>} // строка состояния
-      </div>
+      <MyForm/>
     </div>
   );
-}
-const myForm = () => {
-
-}
+})
+const MyForm = observer(() => {
+  const {mainData} = useStore()
+  const updateData = (e) => {
+    axios.post("http://37.220.84.64:5000",mainData.districtInfo)
+        .then((msg) => {
+          console.log(msg)
+        })
+  }
+return (
+    <div style={{ flex: '1', padding: '10px' }}>
+      <select value={mainData.selectedType} onChange={(e) => {
+        mainData.selectedType = e.target.value;
+      }}>
+        {infrastructureTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+        ))}
+      </select>
+      <button onClick={updateData} type='button'>Обновить</button>
+      {/*<button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>*/}
+      {/*  Собрать геометрические данные*/}
+      {/*</button>*/}
+      {/*{isLoading && <p>Загрузка данных...</p>} // строка состояния*/}
+    </div>
+)
+})
 
 export default MyMap;
