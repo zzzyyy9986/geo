@@ -200,6 +200,7 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
           console.error(`Error fetching infrastructure for ${type}: `, error);
         }
       }
+      console.log(infrastructureCounts)
 
       console.log('Infrastructure Counts:', infrastructureCounts);
     } catch (error) {
@@ -290,6 +291,19 @@ function MyMap() {
     setIsLoading(false); // Завершаем загрузку
   };
 
+  const updateData = (e) => {
+    axios.post("http://37.220.84.64:5000",{
+            "pharmacy": 190,
+            "kindergarten": 100,
+            "school": 122,
+            "restaurant": 92,
+            "distanceToCenter": 50000
+          })
+        .then((msg) => {
+            console.log(msg)
+        })
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       <div style={{ flex: '2', position: 'relative' }}>
@@ -308,6 +322,7 @@ function MyMap() {
     <option key={type} value={type}>{type}</option>
   ))}
 </select>
+        <button onClick={updateData} type='button'>Обновить</button>
         <button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>
           Собрать геометрические данные
         </button>
@@ -315,6 +330,9 @@ function MyMap() {
       </div>
     </div>
   );
+}
+const myForm = () => {
+
 }
 
 export default MyMap;
