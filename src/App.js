@@ -223,7 +223,7 @@ const MapComponent = observer(  ({ handleCollectGeoData, selectedType }) => {
           ...prevData,
           [polygon]: newInfrastructureCounts,
         }));
-
+        mainData.districtInfo = infrastructureCounts;
         console.log('Infrastructure Counts:', infrastructureCounts);
       } catch (error) {
         console.error('Error in handleCreated: ', error);
@@ -348,13 +348,7 @@ const MyForm = observer(() => {
   const updateData = (e) => {
     console.log(mainData.districtInfo.pharmacy)
     axios.post("http://37.220.84.64:5000",[
-      {
-        "pharmacy": 190,
-        "kindergarten": 100,
-        "school": 122,
-        "restaurant": 92,
-        "distanceToCenter": 50000
-      }
+      mainData.districtInfo
     ])
         .then((msg) => {
           mainData.newPrice = msg.data
