@@ -176,7 +176,9 @@ const MapComponent = observer(  ({ handleCollectGeoData, selectedType }) => {
   useEffect(() => {
     selectedTypeRef.current = selectedType;
   }, [selectedType]);
+  useEffect(() => {
 
+  },[])
   const handleCreated = async (e) => {
     const layer = e.layer;
     if (layer instanceof L.Polygon) {
@@ -185,6 +187,10 @@ const MapComponent = observer(  ({ handleCollectGeoData, selectedType }) => {
     } else if (layer instanceof L.Marker) {
       const latLng = layer.getLatLng();
       setMarkers(prev => [...prev, {position: [latLng.lat, latLng.lng], type: selectedTypeRef.current}]);
+    }
+    if (map.editTools) { // проверка на существование editTools
+      const { edit } = map.editTools;
+      edit._toggleEditing(e.layer);
     }
     try {
       const layer = e.layer;
@@ -269,7 +275,6 @@ async function fetchInfrastructureInPolygon(polygon, infrastructureType) {
   }
 }
 
-
 const  MyMap = observer(() => {
   const {mainData} = useStore()
   const [selectedType, setSelectedType] = useState(infrastructureTypes[0]); // Добавьте эту строку
@@ -313,27 +318,46 @@ const  MyMap = observer(() => {
 const MyForm = observer(() => {
   const {mainData} = useStore()
   const updateData = (e) => {
-    axios.post("http://37.220.84.64:5000",mainData.districtInfo)
+    console.log(mainData.districtInfo.pharmacy)
+    axios.post("http://37.220.84.64:5000",[
+      {
+        "pharmacy": 190,
+        "kindergarten": 100,
+        "school": 122,
+        "restaurant": 92,
+        "distanceToCenter": 50000
+      }
+    ])
         .then((msg) => {
           console.log(msg)
         })
   }
 return (
-    <div style={{ flex: '1', padding: '10px' }}>
-      <select value={mainData.selectedType} onChange={(e) => {
-        mainData.selectedType = e.target.value;
-      }}>
-        {infrastructureTypes.map(type => (
-            <option key={type} value={type}>{type}</option>
-        ))}
-      </select>
-      <button onClick={updateData} type='button'>Обновить</button>
-      {/*<button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>*/}
-      {/*  Собрать геометрические данные*/}
-      {/*</button>*/}
-      {/*{isLoading && <p>Загрузка данных...</p>} // строка состояния*/}
+    <div>
+      <form style={{ flex: '1', padding: '10px' }}>
+
+        <div className='mb-3'>
+          <label htmlFor="">Выберите тип объекта</label>
+          <select className='form-control' value={mainData.selectedType} onChange={(e) => {
+            mainData.selectedType = e.target.value;
+          }}>
+            {infrastructureTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={updateData} className='btn btn-success  ' type='button'>Обновить</button>
+        {/*<button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>*/}
+        {/*  Собрать геометрические данные*/}
+        {/*</button>*/}
+        {/*{isLoading && <p>Загрузка данных...</p>} // строка состояния*/}
+      </form>
+
+      Средняя
+
     </div>
 )
 })
+
 
 export default MyMap;
