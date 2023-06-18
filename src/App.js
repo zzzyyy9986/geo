@@ -142,6 +142,7 @@ function MapComponent({ handleCollectGeoData }) {
           circle: false,
           circlemarker: false,
           marker: false,
+          polygon: { shapeOptions: { color: '#00FF00' } }, // Зеленый цвет
         }}
       />
     </FeatureGroup>
