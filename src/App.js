@@ -183,8 +183,12 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
       const latLng = layer.getLatLng();
       setMarkers(prev => [...prev, {position: [latLng.lat, latLng.lng], type: selectedTypeRef.current}]);
     }
-    const { edit } = map.editTools;
-    edit._toggleEditing(e.layer);
+
+    if (map.editTools) { // проверка на существование editTools
+      const { edit } = map.editTools;
+      edit._toggleEditing(e.layer);
+    }
+
     try {
       const layer = e.layer;
       DrawnItems.addLayer(layer);
@@ -206,6 +210,8 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
       console.error('Error in handleCreated: ', error);
     }
   };
+
+
 
   return (
     <FeatureGroup>
