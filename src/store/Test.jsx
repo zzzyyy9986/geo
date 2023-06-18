@@ -4,6 +4,7 @@ class Data{
 
     districtInfo = {}
     selectedType = 'pharmacy'
+    newPrice= 0
 
     constructor() {
         makeAutoObservable(this)

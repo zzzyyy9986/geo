@@ -329,7 +329,7 @@ const MyForm = observer(() => {
       }
     ])
         .then((msg) => {
-          console.log(msg)
+          mainData.newPrice = msg.data
         })
   }
 return (
@@ -346,14 +346,16 @@ return (
             ))}
           </select>
         </div>
-        <button onClick={updateData} className='btn btn-success  ' type='button'>Обновить</button>
+        <button onClick={updateData} className='btn btn-success' type='button'>Обновить</button>
         {/*<button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>*/}
         {/*  Собрать геометрические данные*/}
         {/*</button>*/}
         {/*{isLoading && <p>Загрузка данных...</p>} // строка состояния*/}
       </form>
 
-      Средняя
+      <div className='m-lg-3'>
+        Средняя стоимость с учетом всех данных:{mainData.newPrice}
+      </div>
 
     </div>
 )
