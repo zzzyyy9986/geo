@@ -163,6 +163,7 @@ async function fetchDistrictData(polygon) {
 
 function MapComponent({ handleCollectGeoData, selectedType }) {
 
+  const [infrastructureData, setInfrastructureData] = useState({});
 
   const [markers, setMarkers] = useState([]);
   const map = useMap();
@@ -176,12 +177,51 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
 
   const handleCreated = async (e) => {
     const layer = e.layer;
-    if (layer instanceof L.Polygon) {
-      const center = layer.getBounds().getCenter();
-      setMarkers(prev => [...prev, {position: [center.lat, center.lng], type: selectedTypeRef.current}]);
-    } else if (layer instanceof L.Marker) {
+
+    if (layer instanceof L.Marker) {
       const latLng = layer.getLatLng();
       setMarkers(prev => [...prev, {position: [latLng.lat, latLng.lng], type: selectedTypeRef.current}]);
+    } else if (layer instanceof L.Polygon) {
+      const center = layer.getBounds().getCenter();
+      setMarkers(prev => [...prev, {position: [center.lat, center.lng], type: selectedTypeRef.current}]);
+
+      const latLngs = layer.getLatLngs()[0];
+      const polygon = latLngs.map(latLng => `${latLng.lat} ${latLng.lng}`).join(' ');
+
+      try {
+        const infrastructureCounts = {};
+        for (const type of infrastructureTypes) {
+          try {
+            const count = await fetchInfrastructureInPolygon(polygon, type);
+            infrastructureCounts[type] = count;
+          } catch (error) {
+            console.error(`Error fetching infrastructure for ${type}: `, error);
+          }
+        }
+
+        const polygonCenter = {
+          latitude: latLngs.reduce((sum, latLng) => sum + latLng.lat, 0) / latLngs.length,
+          longitude: latLngs.reduce((sum, latLng) => sum + latLng.lng, 0) / latLngs.length,
+        };
+
+        const distanceToCenter = getDistance(centerOfMoscow, polygonCenter);
+        infrastructureCounts.distanceToCenter = distanceToCenter;
+
+        const newInfrastructureCounts = { ...infrastructureCounts };
+        for (const type of infrastructureTypes) {
+          if (type === selectedTypeRef.current) {
+            newInfrastructureCounts[type] += 1;
+          }
+        }
+        setInfrastructureData(prevData => ({
+          ...prevData,
+          [polygon]: newInfrastructureCounts,
+        }));
+
+        console.log('Infrastructure Counts:', infrastructureCounts);
+      } catch (error) {
+        console.error('Error in handleCreated: ', error);
+      }
     }
 
     if (map.editTools) { // проверка на существование editTools
@@ -190,26 +230,12 @@ function MapComponent({ handleCollectGeoData, selectedType }) {
     }
 
     try {
-      const layer = e.layer;
       DrawnItems.addLayer(layer);
-      const latLngs = layer.getLatLngs()[0];
-      const polygon = latLngs.map(latLng => `${latLng.lat} ${latLng.lng}`).join(' ');
-
-      const infrastructureCounts = {};
-      for (const type of infrastructureTypes) {
-        try {
-          const count = await fetchInfrastructureInPolygon(polygon, type);
-          infrastructureCounts[type] = count;
-        } catch (error) {
-          console.error(`Error fetching infrastructure for ${type}: `, error);
-        }
-      }
-
-      console.log('Infrastructure Counts:', infrastructureCounts);
     } catch (error) {
-      console.error('Error in handleCreated: ', error);
+      console.error('Error adding layer to feature group: ', error);
     }
   };
+
 
 
 
@@ -266,9 +292,10 @@ async function fetchInfrastructureInPolygon(polygon, infrastructureType) {
     return response.data.elements.length;
   } catch (error) {
     console.error(`Error fetching infrastructure for ${infrastructureType}: `, error);
-    return null;
+    return 0;  // возвращаем 0 при ошибке
   }
 }
+
 
 
 function MyMap() {
