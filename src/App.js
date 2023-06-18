@@ -9,9 +9,49 @@ import 'leaflet-draw/dist/leaflet.draw-src.css';
 import axios from 'axios';
 import districtsData from './districtsData.json';
 import { saveAs } from 'file-saver';
-
+import { getDistance } from 'geolib'; // импортируем функцию для вычисления расстояния
+import { Marker, Tooltip } from 'react-leaflet';
+const infrastructureIcons = {
+  pharmacy: L.divIcon({
+    className: 'custom-icon',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="3" width="4" height="20"/>
+              <rect x="14" y="3" width="4" height="20"/>
+              <path d="M16 9L10 5L4 9"/>
+            </svg>`,
+    iconSize: [24, 24]
+  }),
+  kindergarten: L.divIcon({
+    className: 'custom-icon',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M16 12L12 16L8 12L12 8L16 12Z"/>
+            </svg>`,
+    iconSize: [24, 24]
+  }),
+  school: L.divIcon({
+    className: 'custom-icon',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 9L12 2L2 9L12 16L22 9Z"/>
+              <path d="M7 21V13H17V21"/>
+              <path d="M7 6L2 9L7 12"/>
+            </svg>`,
+    iconSize: [24, 24]
+  }),
+  restaurant: L.divIcon({
+    className: 'custom-icon',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3H19V21H15"/>
+              <path d="M10 3H14V21H10"/>
+              <path d="M5 3H9V21H5"/>
+            </svg>`,
+    iconSize: [24, 24]
+  }),
+};
 
 const infrastructureTypes = ["pharmacy", "kindergarten", "school", "restaurant"];
+const centerOfMoscow = { latitude: 55.751244, longitude: 37.618423 }; // координаты центра Москвы
+
 
 // async function fetchDistrictBoundaries(city) {
 //   const overpassUrl = 'https://overpass-api.de/api/interpreter';
@@ -52,6 +92,24 @@ async function collectDistrictData() {
 
       const boundaries = coordinates[0].map(coords => `${coords[1]} ${coords[0]}`).join(' ');
 
+      // вычисляем центр района
+      const districtCenter = coordinates[0].reduce(
+        (center, coords, index, array) => {
+          center.latitude += coords[1];
+          center.longitude += coords[0];
+          if (index === array.length - 1) {
+            center.latitude /= array.length;
+            center.longitude /= array.length;
+          }
+          return center;
+        },
+        { latitude: 0, longitude: 0 }
+      );
+
+      // вычисляем расстояние от центра района до центра Москвы
+      const distanceToCenter = getDistance(centerOfMoscow, districtCenter);
+
+
       const infrastructurePromises = infrastructureTypes.map(type => fetchInfrastructureInPolygon(boundaries, type));
       const infrastructureCounts = await axios.all(infrastructurePromises)
         .then(axios.spread((...values) => {
@@ -65,7 +123,9 @@ async function collectDistrictData() {
           return {};
         });
 
-      results[districtName] = infrastructureCounts;
+        results[districtName] = { ...infrastructureCounts, distanceToCenter };
+
+
     }
 
     return results;
@@ -101,35 +161,83 @@ async function fetchDistrictData(polygon) {
   }
 }
 
-function MapComponent({ handleCollectGeoData }) {
-  const DrawnItems = useRef(new L.FeatureGroup()).current;
+function MapComponent({ handleCollectGeoData, selectedType }) {
+
+  const [infrastructureData, setInfrastructureData] = useState({});
+
+  const [markers, setMarkers] = useState([]);
   const map = useMap();
+  const drawnItems = L.featureGroup().addTo(map);
+
+  const DrawnItems = useRef(new L.FeatureGroup()).current;
+  const selectedTypeRef = useRef(selectedType);
   useEffect(() => {
-    DrawnItems.addTo(map);
-  }, [map, DrawnItems]);
+    selectedTypeRef.current = selectedType;
+  }, [selectedType]);
 
   const handleCreated = async (e) => {
-    try {
-      const layer = e.layer;
-      DrawnItems.addLayer(layer);
+    const layer = e.layer;
+
+    if (layer instanceof L.Marker) {
+      const latLng = layer.getLatLng();
+      setMarkers(prev => [...prev, {position: [latLng.lat, latLng.lng], type: selectedTypeRef.current}]);
+    } else if (layer instanceof L.Polygon) {
+      const center = layer.getBounds().getCenter();
+      setMarkers(prev => [...prev, {position: [center.lat, center.lng], type: selectedTypeRef.current}]);
+
       const latLngs = layer.getLatLngs()[0];
       const polygon = latLngs.map(latLng => `${latLng.lat} ${latLng.lng}`).join(' ');
 
-      const infrastructureCounts = {};
-      for (const type of infrastructureTypes) {
-        try {
-          const count = await fetchInfrastructureInPolygon(polygon, type);
-          infrastructureCounts[type] = count;
-        } catch (error) {
-          console.error(`Error fetching infrastructure for ${type}: `, error);
+      try {
+        const infrastructureCounts = {};
+        for (const type of infrastructureTypes) {
+          try {
+            const count = await fetchInfrastructureInPolygon(polygon, type);
+            infrastructureCounts[type] = count;
+          } catch (error) {
+            console.error(`Error fetching infrastructure for ${type}: `, error);
+          }
         }
-      }
 
-      console.log('Infrastructure Counts:', infrastructureCounts);
+        const polygonCenter = {
+          latitude: latLngs.reduce((sum, latLng) => sum + latLng.lat, 0) / latLngs.length,
+          longitude: latLngs.reduce((sum, latLng) => sum + latLng.lng, 0) / latLngs.length,
+        };
+
+        const distanceToCenter = getDistance(centerOfMoscow, polygonCenter);
+        infrastructureCounts.distanceToCenter = distanceToCenter;
+
+        const newInfrastructureCounts = { ...infrastructureCounts };
+        for (const type of infrastructureTypes) {
+          if (type === selectedTypeRef.current) {
+            newInfrastructureCounts[type] += 1;
+          }
+        }
+        setInfrastructureData(prevData => ({
+          ...prevData,
+          [polygon]: newInfrastructureCounts,
+        }));
+
+        console.log('Infrastructure Counts:', infrastructureCounts);
+      } catch (error) {
+        console.error('Error in handleCreated: ', error);
+      }
+    }
+
+    if (map.editTools) { // проверка на существование editTools
+      const { edit } = map.editTools;
+      edit._toggleEditing(e.layer);
+    }
+
+    try {
+      DrawnItems.addLayer(layer);
     } catch (error) {
-      console.error('Error in handleCreated: ', error);
+      console.error('Error adding layer to feature group: ', error);
     }
   };
+
+
+
 
   return (
     <FeatureGroup>
@@ -141,10 +249,21 @@ function MapComponent({ handleCollectGeoData }) {
           polyline: false,
           circle: false,
           circlemarker: false,
-          marker: false,
           polygon: { shapeOptions: { color: '#00FF00' } }, // Зеленый цвет
+          marker: { icon: infrastructureIcons[selectedType] }, // Задаем иконку для маркера в соответствии с выбранным типом
         }}
       />
+       {markers.map((marker, idx) => (
+      <Marker
+        key={idx}
+        position={marker.position}
+        icon={infrastructureIcons[marker.type]}
+      >
+        <Tooltip permanent>
+          {marker.type}
+        </Tooltip>
+      </Marker>
+    ))}
     </FeatureGroup>
   );
 }
@@ -173,12 +292,15 @@ async function fetchInfrastructureInPolygon(polygon, infrastructureType) {
     return response.data.elements.length;
   } catch (error) {
     console.error(`Error fetching infrastructure for ${infrastructureType}: `, error);
-    return null;
+    return 0;  // возвращаем 0 при ошибке
   }
 }
 
 
+
 function MyMap() {
+  const [selectedType, setSelectedType] = useState(infrastructureTypes[0]); // Добавьте эту строку
+
   const [isLoading, setIsLoading] = useState(false); // Используем isLoading для строки состояния
   const DrawnItems = useRef(new L.FeatureGroup()).current;
 
@@ -206,10 +328,19 @@ function MyMap() {
       <div style={{ flex: '2', position: 'relative' }}>
         <MapContainer center={[55.7522200, 37.6155600]} zoom={13} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapComponent handleCollectGeoData={handleCollectGeoData} />
+          <MapComponent handleCollectGeoData={handleCollectGeoData} selectedType={selectedType} />
+
         </MapContainer>
       </div>
       <div style={{ flex: '1', padding: '10px' }}>
+      <select onChange={(e) => {
+  console.log(e.target.value); // Добавьте эту строку для отладки
+  setSelectedType(e.target.value);
+}}>
+  {infrastructureTypes.map(type => (
+    <option key={type} value={type}>{type}</option>
+  ))}
+</select>
         <button onClick={handleCollectGeoData} style={{ margin: '10px 0' }}>
           Собрать геометрические данные
         </button>
